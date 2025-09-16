@@ -1,0 +1,110 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  6
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      thermophysicalProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+/*
+// this is setting for DTM
+usingDetailedTransportModel  true;   //newly added
+usingCoTHERM                 true;  //newly added
+
+// Set major species list for CoTHERM
+majorSpeciesForCoTHERM (CH4 O2 CO2 H2O);  //newly added
+
+// Set threshold for CoTHERM
+epsilonT          0.2;    // [K]
+epsilonP          100;    // [Pa]
+epsilonSpecies    0.001;  // [-] mass fraction
+
+//ideal gas
+
+thermoType
+{
+    type            hePsiThermo;
+    mixture         DTMMultiComponentMixture;
+    transport       DTMTransport;
+    thermo          janaf;
+    energy          sensibleEnthalpy;
+    equationOfState perfectGas;
+    specie          specie;
+}
+
+inertSpecie N2;
+
+#include "thermo.DTM"
+// end of setting for DTM
+*/
+
+/*
+// this is setting for preprocessing FTM
+usingDetailedTransportModel  true;   //must be true
+usingCoTHERM                 false;  //must be false
+usingPreProcessingFTM        true;   //must be true, default is false
+
+// Set major species list for CoTHERM
+majorSpeciesForCoTHERM (CH4 O2 CO2 H2O);  //newly added
+
+// Set threshold for CoTHERM
+epsilonT          0.2;    // [K]
+epsilonP          100;    // [Pa]
+epsilonSpecies    0.001;  // [-] mass fraction
+
+//ideal gas
+
+thermoType
+{
+    type            hePsiThermo;
+    mixture         DTMMultiComponentMixture;
+    transport       preprocessingFTMTransport;
+    thermo          janaf;
+    energy          sensibleEnthalpy;
+    equationOfState perfectGas;
+    specie          specie;
+}
+
+inertSpecie N2;
+
+#include "thermo.DTM"
+// end of setting for preprocessing FTM
+*/
+
+
+// this is setting for FTM
+usingDetailedTransportModel  true;  //newly added
+usingCoTHERM                 true;  //newly added
+
+// Set major species list for CoTHERM
+majorSpeciesForCoTHERM (CH4 O2 CO2 H2O);  //newly added
+
+// Set threshold for CoTHERM
+epsilonT          0.2;   // [K], newly added
+epsilonP          100;   // [Pa], newly added
+epsilonS          0.001; // [-], in mass fraction, newly added
+
+thermoType
+{
+    type            hePsiThermo;
+    mixture         FTMMultiComponentMixture; //for FTM
+    transport       FTMTransport;  //for FTM
+    thermo          janaf;
+    energy          sensibleEnthalpy;
+    equationOfState perfectGas;
+    specie          specie;
+}
+
+inertSpecie N2;
+#include "thermo.FTM" //for FTM
+// end of setting for FTM
+
+// ************************************************************************* //

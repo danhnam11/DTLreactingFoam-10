@@ -1,0 +1,44 @@
+#!/bin/sh
+cd ${0%/*} || exit 1    # Run from this directory
+makeType=${1:-libso}
+set -x 
+
+# comment out all of this if want to keep obj. files of this ver. -----
+ ./src/Allwclean
+
+wclean ./applications/solvers/reactingFoam
+wclean ./applications/solvers/DTLreactingFoam
+
+# ----------------------------------------------------------------------
+
+cd $FOAM_USER_LIBBIN
+
+rm -rf libchemistryModel.so
+rm -rf libcombustionModels.so
+rm -rf libfluidReactionThermophysicalTransportModels.so
+rm -rf libfluidThermophysicalModels.so
+rm -rf libfvConstraints.so
+rm -rf libfvModels.so
+rm -rf libphaseFluidReactionThermophysicalTransportModels.so
+rm -rf libphaseFluidThermophysicalTransportModels.so
+rm -rf libradiationModels.so
+rm -rf libreactionThermophysicalModels.so
+rm -rf libsolidThermo.so
+rm -rf libspecie.so
+rm -rf libspecieTransfer.so
+rm -rf libthermophysicalProperties.so
+rm -rf libthermophysicalTransportModels.so
+
+
+cd - 
+
+cd $FOAM_USER_APPBIN
+rm -rf reactingFoam
+rm -rf DTLreactingFoam
+
+rm -rf chemkinToFoam
+rm -rf DTMchemkinToFoam
+rm -rf FTMchemkinToFoam
+cd - 
+
+#------------------------------------------------------------------------------
