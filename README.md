@@ -1,4 +1,4 @@
-# DTLreactingFoam-8
+# DTLreactingFoam-10
 
 ## General Information
 A package for high fidelity simulations of laminar reacting flows in OpenFOAM-10 with low computational cost, incorporating both the detailed transport model (DTM) and the polynomial fit transport model (FTM) based on the principle of kinetic gas theory [1]. To enhance computational efficiency, it was integrated with the time-correlated thermophysical property calculation (coTHERM) method. This technique can significantly reduce the computational cost of numerical simulations using DTM/FTM in OpenFOAM-10 while preserving accuracy. Readers are referred to our paper for all validation data. Readers are also referred to https://github.com/danhnam11/DTLreactingFoam-8 and https://github.com/danhnam11/DTLreactingFoam-12 for DTLreactingFoam in OpenFOAM-8 and OpenFOAM-12, respectively.
@@ -75,3 +75,4 @@ If you need help with installation or have any questions, feel free to reach out
 
 ## Reference
 [1] R. J. Kee, F. M. Rupley, E. Meeks, J. A. Miller, CHEMKIN-III: A FORTRAN chemical kinetics package for the analysis of gas-phase chemical and plasma kinetics, SAND96-8216 (1996).
+
