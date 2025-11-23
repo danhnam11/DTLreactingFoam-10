@@ -86,6 +86,8 @@ class hePsiThermo
         //- Store List of raw thermophysical data of all individual species 
         const PtrList<typename MixtureType::thermoType>& specieThermos_;
 
+        //- coTHERM modes
+        int mode_;
 
 public:
 

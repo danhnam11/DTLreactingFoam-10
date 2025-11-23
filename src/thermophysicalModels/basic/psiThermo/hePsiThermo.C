@@ -308,8 +308,10 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
     scalarField& psiCells = this->psi_.primitiveFieldRef();
     scalarField& muCells = this->mu_.primitiveFieldRef();
     scalarField& kappaCells = this->kappa_.primitiveFieldRef();
-
     scalarField& WmixCells = Wmix_.primitiveFieldRef(); 
+
+    // For CoTHERMCount
+    scalarField& CountCells = this->coTHERMStepCount_.primitiveFieldRef();
 
     scalarField& TCellsOld = this->T_.oldTime().primitiveFieldRef();
     scalarField& PCellsOld = this->p_.oldTime().primitiveFieldRef();
@@ -333,16 +335,22 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
         scalar coDeltaT = mag(TCells[celli] - TCellsOld[celli]);
         scalar coDeltaP = mag(pCells[celli] - PCellsOld[celli]);
 
+        const bool exceedCount = (CountCells[celli] >= this->maxCoTHERMStepCount_);
+
         if 
         ( 
             (coDeltaT <= this->epsilonT_) && 
             (this->flagSpecies_[celli] < 1.0 ) &&
-            (coDeltaP <= this->epsilonP_) 
+            (coDeltaP <= this->epsilonP_) &&
+            (!exceedCount)              
         )
         {
             // If the temperature is unchanged, don't need to calculate 
             // thermophysical properties, just copy from old time fields 
-            this->coTHERMstatus_.primitiveFieldRef()[celli] = 1.0;            
+            this->coTHERMstatus_.primitiveFieldRef()[celli] = 1.0;
+            // start counter     
+            CountCells[celli] += 1.0;
+
             psiCells[celli] = thermoMixture.psi(pCells[celli], TCells[celli]);
             WmixCells[celli]  = thermoMixture.W();
 
@@ -367,12 +375,16 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
         (
             (coDeltaT <= this->epsilonT_) && 
             (this->flagSpecies_[celli] < 1.0 ) &&
-            !(coDeltaP <= this->epsilonP_)
+            !(coDeltaP <= this->epsilonP_) &&
+            (!exceedCount)               
         )
         {
             // only re-calculate Dimix
             // for other thermophysical properties, copy from old time
-            this->coTHERMstatus_.primitiveFieldRef()[celli] = 0.5;            
+            this->coTHERMstatus_.primitiveFieldRef()[celli] = 0.5;
+            // reset counter
+            CountCells[celli] = 0.0; 
+
             psiCells[celli] = thermoMixture.psi(pCells[celli], TCells[celli]);
             WmixCells[celli]  = thermoMixture.W();
 
@@ -396,7 +408,10 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
         else
         {
             // otherwise, calculate all thermophysical properties again 
-            this->coTHERMstatus_.primitiveFieldRef()[celli] = 0.0;               
+            this->coTHERMstatus_.primitiveFieldRef()[celli] = 0.0;
+            // reset counter
+            CountCells[celli] = 0.0; 
+
             CpCells[celli] = thermoMixture.Cp(pCells[celli], TCells[celli]);
             CvCells[celli] = thermoMixture.Cv(pCells[celli], TCells[celli]);
             psiCells[celli] = thermoMixture.psi(pCells[celli], TCells[celli]);
@@ -427,6 +442,7 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
     volScalarField::Boundary& muBf = this->mu_.boundaryFieldRef();
     volScalarField::Boundary& kappaBf = this->kappa_.boundaryFieldRef();
     volScalarField::Boundary& WmixBf = Wmix_.boundaryFieldRef();
+    volScalarField::Boundary& CountBf  = this->coTHERMStepCount_.boundaryFieldRef();
 
     // old fields
     volScalarField::Boundary& TBfOld = this->T_.oldTime().boundaryFieldRef();
@@ -447,6 +463,7 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
         fvPatchScalarField& pmu = muBf[patchi];
         fvPatchScalarField& pkappa = kappaBf[patchi];
         fvPatchScalarField& pWmix = WmixBf[patchi];
+        fvPatchScalarField& pCount  = CountBf[patchi];
 
         // old fields
         fvPatchScalarField& pTOld = TBfOld[patchi]; 
@@ -473,16 +490,22 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
                 scalar coDeltaTp = mag(pT[facei] - pTOld[facei]);
                 scalar coDeltaPp = mag(pp[facei] - ppOld[facei]);
 
+                const bool exceedCountP = (pCount[facei] >= this->maxCoTHERMStepCount_);
+
                 if 
                 ( 
                     (coDeltaTp <= this->epsilonT_) && 
                     ( this->flagSpecies_.boundaryFieldRef()[patchi][facei] < 1.0) && 
-                    (coDeltaPp <= this->epsilonP_)                    
+                    (coDeltaPp <= this->epsilonP_) &&
+                    (!exceedCountP)                                           
                 )
                 {
                     // don't need to re-calculate thermophysical properties
                     // just copy from old time fields
-                    this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 1.0;                    
+                    this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 1.0; 
+                    // start counter
+                    pCount[facei] += 1.0;
+
                     phe[facei] = thermoMixture.HE(pp[facei], pT[facei]);
                     ppsi[facei] = thermoMixture.psi(pp[facei], pT[facei]);
                     pWmix[facei]  = thermoMixture.W();                    
@@ -508,12 +531,16 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
                 (
                     (coDeltaTp <= this->epsilonT_) && 
                     ( this->flagSpecies_.boundaryFieldRef()[patchi][facei] < 1.0) && 
-                    !(coDeltaPp <= this->epsilonP_)   
+                    !(coDeltaPp <= this->epsilonP_) &&
+                    (!exceedCountP)                         
                 )
                 {
                     // only re-calculate Dimix
                     // for other thermophysical properties, copy from old time
-                    this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 0.5;                            
+                    this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 0.5;
+                    // reset counter
+                    pCount[facei] = 0.0;
+
                     phe[facei] = thermoMixture.HE(pp[facei], pT[facei]);
                     ppsi[facei] = thermoMixture.psi(pp[facei], pT[facei]);
                     pWmix[facei]  = thermoMixture.W();                    
@@ -538,7 +565,10 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
                 else 
                 {
                     // otherwise, calculate all thermophysical properties again 
-                    this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 0.0;                                                     
+                    this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 0.0;
+                    // reset counter
+                    pCount[facei] = 0.0;
+
                     phe[facei] = thermoMixture.HE(pp[facei], pT[facei]);
                     ppsi[facei] = thermoMixture.psi(pp[facei], pT[facei]);
                     pWmix[facei]  = thermoMixture.W();                    
@@ -578,16 +608,22 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
                 scalar coDeltaTp = mag(pT[facei] - pTOld[facei]);
                 scalar coDeltaPp = mag(pp[facei] - ppOld[facei]);
 
+                const bool exceedCountP = (pCount[facei] >= this->maxCoTHERMStepCount_);
+
                 if 
                 ( 
                     (coDeltaTp <= this->epsilonT_) && 
                     ( this->flagSpecies_.boundaryFieldRef()[patchi][facei] < 1.0) && 
-                    (coDeltaPp <= this->epsilonP_)                    
+                    (coDeltaPp <= this->epsilonP_) &&
+                    (!exceedCountP)                                          
                 )
                 {
                     // don't need to re-calculate thermophysical properties
                     // just copy from old time fields
                     this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 1.0;
+                    // start counter
+                    pCount[facei] += 1.0;
+
                     pT[facei] = thermoMixture.THE(phe[facei], pp[facei], pT[facei]);
                     ppsi[facei] = thermoMixture.psi(pp[facei], pT[facei]); 
                     pWmix[facei]  = thermoMixture.W();                                                    
@@ -613,12 +649,16 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
                 (
                     (coDeltaTp <= this->epsilonT_) && 
                     ( this->flagSpecies_.boundaryFieldRef()[patchi][facei] < 1.0) && 
-                    !(coDeltaPp <= this->epsilonP_)   
+                    !(coDeltaPp <= this->epsilonP_) &&
+                    (!exceedCountP)                         
                 )
                 {
                     // only re-calculate Dimix
                     // for other thermophysical properties, copy from old time
                     this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 0.5;
+                    // reset counter
+                    pCount[facei] = 0.0;
+
                     pT[facei] = thermoMixture.THE(phe[facei], pp[facei], pT[facei]);
                     ppsi[facei] = thermoMixture.psi(pp[facei], pT[facei]); 
                     pWmix[facei]  = thermoMixture.W();                                                    
@@ -643,7 +683,10 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::calculateUsingCoTHERM()
                 else 
                 {
                     // otherwise, calculate all thermophysical properties again     
-                    this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 0.0;        
+                    this->coTHERMstatus_.boundaryFieldRef()[patchi][facei] = 0.0;
+                    // reset counter
+                    pCount[facei] = 0.0;
+                            
                     pT[facei] = thermoMixture.THE(phe[facei], pp[facei], pT[facei]);
                     ppsi[facei] = thermoMixture.psi(pp[facei], pT[facei]); 
                     pWmix[facei]  = thermoMixture.W();                                                    
@@ -1138,7 +1181,8 @@ Foam::hePsiThermo<BasicPsiThermo, MixtureType>::hePsiThermo
         mesh,
         dimensionedScalar("Wmix", dimensionSet(1, 0, 0, 0, -1), 0.)
     ),
-    specieThermos_(this->specieThermos())
+    specieThermos_(this->specieThermos()),
+    mode_(0) //    
 {
 
     // for diffusivity models in DTM - Nam
@@ -1230,19 +1274,57 @@ Foam::hePsiThermo<BasicPsiThermo, MixtureType>::hePsiThermo
         );
     }
 
-    // - Nam
-    /* 
-    Info << "Nam: in hePsThermo class, Number of Species = " << MixtureType::specieThermos().size() << endl;
-    Info << "usingDetailedTransportModel = " << this->usingDetailedTransportModel_ << endl;
-    Info << "usingPreProcessingFTM = " << this->usingPreProcessingFTM_ << endl;
-    Info << "usingCoTHERM_ = " << this->usingCoTHERM_ << endl;
-
-    Info << "epsilonOnlyT_ = " << this->epsilonOnlyT_ << endl;
-    Info << "epsilonT_ = " << this->epsilonT_ << endl;
-    Info << "epsilonP_ = " << this->epsilonP_ << endl;
-
-    Info << "flagSpeces_ = " << this->flagSpecies_ << endl;
-    */
+    // check and setup coTHERM mode - Nam
+    if 
+    (
+        this->usingDetailedTransportModel_ && 
+        !this->usingCoTHERM_ && 
+        !this->usingCoTHERMOnlyT_ &&
+        !this->usingPreProcessingFTM_       
+    )
+    {
+        //modeName_ = "DetailedModels";        
+        mode_ = 1;
+    }
+    else if 
+    (
+        this->usingDetailedTransportModel_ && 
+        this->usingCoTHERM_ && 
+        !this->usingCoTHERMOnlyT_ &&
+        !this->usingPreProcessingFTM_       
+    )
+    {
+        //modeName_ = "coTHERM";        
+        mode_ = 2;
+    }
+    else if
+    (
+        this->usingDetailedTransportModel_ && 
+        !this->usingCoTHERM_ && 
+        !this->usingCoTHERMOnlyT_ &&
+        this->usingPreProcessingFTM_        
+    )
+    {
+        //modeName_ = "preprocessingCoTHERM";
+        mode_ = 3;
+    }
+    else if 
+    (
+        this->usingDetailedTransportModel_ && 
+        !this->usingCoTHERM_ && 
+        this->usingCoTHERMOnlyT_ && 
+        !this->usingPreProcessingFTM_       
+    )
+    {
+        //modeName_ = "CoTHERMonlyT";
+        mode_ = 4;
+    }
+    else
+    {
+        //modeName_ = "originalOpenFOAM";
+        mode_ = 0;
+    }
+    // Nam 
 
     // calculate();  // original 
     Info << "[This is in constructor] thermophysical properties initialization! "  << endl;
@@ -1277,40 +1359,27 @@ void Foam::hePsiThermo<BasicPsiThermo, MixtureType>::correct()
     //calculate(); // original
 
     // Nam
-    if
-    (
-        this->usingDetailedTransportModel_ && 
-        this->usingCoTHERM_ && 
-        !this->usingCoTHERMOnlyT_
-    )
+    switch(mode_)
     {
-        calculateUsingCoTHERM();
-    }
-    else if 
-    (
-        this->usingDetailedTransportModel_ && 
-        !this->usingCoTHERM_ && 
-        this->usingCoTHERMOnlyT_
-    )
-    {
-        calculateUsingCoTHERMOnlyT();
-    }
-    else if 
-    (
-        this->usingDetailedTransportModel_ && 
-        !this->usingCoTHERM_ && 
-        !this->usingCoTHERMOnlyT_
-    )
-    {
-        initialize();
-    }
-    else if (this->usingPreProcessingFTM_)
-    {
-        calculateTransportPreProcessing();
-    }
-    else
-    {
-        calculate();
+        case 1 : 
+            initialize();            
+            break; 
+            
+        case 2 : 
+            calculateUsingCoTHERM();
+            break;      
+            
+        case 3 : 
+            calculateTransportPreProcessing();
+            break; 
+
+        case 4 : 
+            calculateUsingCoTHERMOnlyT();
+            break; 
+            
+        default:
+            calculate();
+            break; 
     }
     // Nam 
 
